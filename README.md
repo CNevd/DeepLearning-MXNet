@@ -1,2 +1,2 @@
 # DeepLearning-MX
-Learn Mxnet
+MXNet for CTR
