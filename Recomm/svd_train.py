@@ -3,7 +3,7 @@ import mxnet as mx
 import argparse
 import logging
 logging.basicConfig(level=logging.DEBUG)
-from DataIter_bak import DataIter
+from DataIter import DataIter
 
 USER_NUM = 6040
 ITEM_NUM = 3952
