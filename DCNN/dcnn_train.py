@@ -85,7 +85,7 @@ def get_dcnn(sentence_size, embed_size, batch_size, vocab_size,
   nl = float(len(fiters))
   for i in xrange(len(fiters)):
     # row wise wide conv
-    conv_outi = mx.sym.Convolution(data=layers[-1], name="conv%s" % i, kernel=(filter_widths[i], 1), num_filter=fiters[i], pad=(filter_widths[i]/2,0), attr={'wd_mult':str(conv_wds[i])})
+    conv_outi = mx.sym.Convolution(data=layers[-1], name="conv%s" % i, kernel=(filter_widths[i], 1), num_filter=fiters[i], pad=(filter_widths[i]-1,0), attr={'wd_mult':str(conv_wds[i])})
 
     _, out_shape, _ = conv_outi.infer_shape(data = (batch_size, sentence_size))
     assert(1 == len(out_shape))
