@@ -1,45 +1,12 @@
 import os, sys
 import numpy
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 import mxnet as mx
 
-def load_data(pkl_path, batchSize):
-    """
-    load the sentiment dataset, either Stanford or Twitter
-
-    Return:
-    - train
-    - dev
-    - test
-    - word2index
-    - index2word
-    - pretrained embedding
-    """
-    datasets = pickle.load(open(pkl_path, 'r'))
-    train_data, train_label = datasets[0]
-    dev_data, dev_label = datasets[1]
-    test_data, test_label = datasets[2]
-    word2index = datasets[3]
-    index2word = datasets[4]
-    pretrained_embeddings = datasets[5]
-    sentence_size = len(train_data[0])
-    vocab_size = len(word2index)
-    train_iter = mx.io.NDArrayIter(data=mx.nd.array(train_data),
-                                   label=mx.nd.array(train_label),
-                                   batch_size=batchSize,
-                                   shuffle=True,
-                                   last_batch_handle='roll_over')
-    val_iter = mx.io.NDArrayIter(data=mx.nd.array(test_data),
-                                 label=mx.nd.array(test_label),
-                                 batch_size=batchSize)
-    return train_iter, val_iter, sentence_size, vocab_size
 
 # load matlab data
 def read_and_sort_matlab_data(x_file, y_file, batchSize, padding_value=15448):
     '''
+    load the Stanford sentiment dataset
     '''
     sorted_dict = {}
     x_data = []
@@ -84,17 +51,56 @@ def read_and_sort_matlab_data(x_file, y_file, batchSize, padding_value=15448):
             lengths.append(length)
     data_np = numpy.asarray(new_train_list,dtype=numpy.int32)
     label_np = numpy.asarray(new_label_list,dtype=numpy.int32)
-    sentence_size = len(data_np[0])
-    data_iter = mx.io.NDArrayIter(data=mx.nd.array(data_np),
-                                   label=mx.nd.array(label_np),
-                                   batch_size=batchSize,
-                                   shuffle=True,
-                                   last_batch_handle='roll_over')
-    return data_iter, sentence_size, padding_value
+
+    return data_np, label_np, lengths
 
 
+class Batch(object):
+    def __init__(self, data_names, data,
+                 label_names, label,
+                 bucket_key):
+        self.data = data
+        self.label = label
+        self.data_names = data_names
+        self.label_names = label_names
+        self.bucket_key = bucket_key
 
-#if __name__ == '__main__':
-#  load_data('./data/twitter.pkl', 1)
-#  read_and_sort_matlab_data('./data/binarySentiment/train.txt', './data/binarySentiment/train_lbl.txt', 1)
+    @property
+    def provide_data(self):
+        return [(n, x.shape) for n, x in zip(self.data_names, self.data)]
 
+    @property
+    def provide_label(self):
+        return [(n, x.shape) for n, x in zip(self.label_names, self.label)]
+
+class DataIter(mx.io.DataIter):
+    def __init__(self, x_file, y_file, batch_size,
+                 data_name='data', label_name='softmax_label'):
+        super(DataIter, self).__init__()
+        self.data_name = data_name
+        self.label_name = label_name
+        self.batch_size = batch_size
+        self.data, self.label, self.lengths = read_and_sort_matlab_data(x_file, y_file, batch_size, padding_value=15448)
+        self.n_batches = len(self.lengths) / self.batch_size
+        self.permutation = numpy.random.permutation(self.n_batches)
+        self.default_bucket_key = self.lengths[-1]
+        self.provide_data = [(data_name, (batch_size, self.default_bucket_key))]
+        self.provide_label = [(label_name, (batch_size, ))]
+
+    def __iter__(self):
+        data_names = [self.data_name]
+        label_names = [self.label_name]
+
+        for index in self.permutation:
+            seq_len = self.lengths[(index + 1) * self.batch_size - 1]
+            bdata = self.data[index * self.batch_size : (index+1) * self.batch_size, 0 : seq_len]
+            blabel = self.label[index * self.batch_size : (index + 1) * self.batch_size]
+            data_all = [mx.nd.array(bdata)]
+            label_all = [mx.nd.array(blabel)]
+            data_names = [self.data_name]
+            label_names = [self.label_name]
+            data_batch = Batch(data_names, data_all, label_names, label_all, seq_len)
+            yield data_batch
+
+    def reset(self):
+        self.permutation = numpy.random.permutation(self.n_batches)
