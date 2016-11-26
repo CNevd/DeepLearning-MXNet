@@ -7,6 +7,7 @@ import mxnet as mx
 import argparse
 import logging
 from lr_scheduler_Lan import Lan_Scheduler
+from imgNAG import imgNAG
 logging.basicConfig()
 
 
@@ -101,7 +102,7 @@ def train_img(args, ctx):
     print "start training..." 
     mod.fit(train_iter, val_iter, eval_metric=eval_metric, batch_end_callback=batch_end_callback,
             kvstore=args.kv_store,
-            optimizer='NAG', optimizer_params=optimizer_params,
+            optimizer='imgNAG', optimizer_params=optimizer_params,
             initializer=mx.initializer.Uniform(0.01), arg_params=arg_params,
             allow_missing=True,
             begin_epoch=args.begin_epoch, num_epoch=args.num_epoch, validation_metric='acc')
