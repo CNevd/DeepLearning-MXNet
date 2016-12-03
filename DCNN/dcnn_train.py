@@ -5,7 +5,7 @@ import sys,os
 os.environ["MXNET_CPU_WORKER_NTHREADS"] = "2"
 import numpy as np
 import mxnet as mx
-from DataIter2 import DataIter
+from DataIter import DataIter
 import argparse
 import logging
 logging.basicConfig()
@@ -57,6 +57,9 @@ class k_max_poolProp(mx.operator.CustomOpProp):
     return k_max_pool(self.k)
 
 def fold(x, shape):
+  if (int(shape[3])%2 != 0):
+    pad_width = (0,0,0,0,0,0,0,1)
+    x = mx.sym.Pad(data=x, mode='edge', pad_width=pad_width)
   long_rows = mx.sym.Reshape(data=x, shape=(int(shape[0]), int(shape[1]), -1, 2))
   sumed = mx.sym.sum(long_rows, axis=3, keepdims=True)
   fold_out = mx.sym.Reshape(data=sumed, shape=(int(shape[0]), int(shape[1]), int(shape[2]), int(shape[3])/2))
