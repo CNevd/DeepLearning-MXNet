@@ -43,7 +43,7 @@ def train_dcpm(args, ctx):
 
     kv = mx.kvstore.create(args.kv_store)
     # load data
-    print "Loading data" 
+    print "Loading data"
     train_iter = DataIter(args.data_dir + '/train_fm', args.batch_size)
     val_iter = DataIter(args.data_dir + '/test_fm', args.batch_size)
     data_names = [k[0] for k in train_iter.provide_data]
@@ -58,12 +58,12 @@ def train_dcpm(args, ctx):
     arg_shape, out_shape, aux_shape = dcpm.infer_shape(data = (args.batch_size, 16))
     arg_shape_dict = dict(zip(arg_names, arg_shape))
     print out_shape
-  
+
     optimizer_params = {'wd': 0.01,
                         'learning_rate': 0.1}
     mod = mx.module.module.Module(dcpm, data_names=data_names, label_names=label_names,
                            logger=logger, context=ctx, work_load_list=args.work_load_list)
- 
+
     batch_end_callback = mx.callback.Speedometer(args.batch_size, frequent=args.frequent)
     model_prefix = args.prefix + "-%d" % (kv.rank)
     epoch_end_callback = mx.callback.do_checkpoint(model_prefix, period=10)
@@ -72,9 +72,9 @@ def train_dcpm(args, ctx):
     metric_auc = mx.metric.np(AUC)
     eval_metric.add(metric_rmse)
     eval_metric.add(metric_auc)
-  
+
     # start train
-    print "start training..." 
+    print "start training..."
     mod.fit(train_iter, val_iter, eval_metric=eval_metric,
             epoch_end_callback=epoch_end_callback,
             batch_end_callback=batch_end_callback,
@@ -84,11 +84,11 @@ def train_dcpm(args, ctx):
             arg_params=arg_params,
             allow_missing=True,
             begin_epoch=args.begin_epoch, num_epoch=args.num_epoch, validation_metric=eval_metric)
-    
+
     print "Train done for epoch: %s"%args.num_epoch
 
 def predict_dcpm(args, ctx):
-    pass 
+    pass
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a Deep Click Prediction Model')
@@ -120,6 +120,8 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
+    if not os.path.exists(args.prefix):
+        os.makedirs(args.prefix)
     ctx = mx.cpu() if args.gpus is None else [mx.gpu(int(i)) for i in args.gpus.split(',')]
     train_dcpm(args, ctx)
     #predict_dcpm(args, ctx)

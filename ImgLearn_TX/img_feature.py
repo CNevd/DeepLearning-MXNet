@@ -85,7 +85,7 @@ def train_img(args, ctx):
     arg_names = ext_net.list_arguments()
     arg_shape, out_shape, aux_shape = ext_net.infer_shape(data = (args.batch_size,3,28, 28))
     arg_shape_dict = dict(zip(arg_names, arg_shape))
-  
+
     lr_scheduler = Lan_Scheduler(500)
     optimizer_params = {'lr_scheduler': lr_scheduler, 'learning_rate': 0.01}
     mod = mx.module.module.Module(ext_net, logger=logger, context=ctx,
@@ -97,16 +97,16 @@ def train_img(args, ctx):
     metric_ce = mx.metric.CrossEntropy()
     eval_metric.add(metric_acc)
     eval_metric.add(metric_ce)
-  
+
     # start train
-    print "start training..." 
+    print "start training..."
     mod.fit(train_iter, val_iter, eval_metric=eval_metric, batch_end_callback=batch_end_callback,
             kvstore=args.kv_store,
             optimizer='imgNAG', optimizer_params=optimizer_params,
             initializer=mx.initializer.Uniform(0.01), arg_params=arg_params,
             allow_missing=True,
             begin_epoch=args.begin_epoch, num_epoch=args.num_epoch, validation_metric='acc')
-  
+
     print "Train done for epoch: %s"%args.num_epoch
 
 
@@ -137,6 +137,8 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
+    if not os.path.exists(args.prefix):
+        os.makedirs(args.prefix)
     ctx = mx.cpu() if args.gpus is None else [mx.gpu(int(i)) for i in args.gpus.split(',')]
     train_img(args,ctx)
 
