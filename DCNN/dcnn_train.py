@@ -23,7 +23,7 @@ class k_max_pool(mx.operator.CustomOp):
     dim0, dim1, dim2, dim3 = sorted_ind.shape
     self.indices_dim0 = np.arange(dim0).repeat(dim1 * dim2 * dim3)
     self.indices_dim1 = np.transpose(np.arange(dim1).repeat(dim2 * dim3).reshape((dim1*dim2*dim3, 1)).repeat(dim0, axis=1)).flatten()
-    self.indices_dim2 = sorted_ind.flatten() 
+    self.indices_dim2 = sorted_ind.flatten()
     self.indices_dim3 = np.transpose(np.arange(dim3).repeat(dim2).reshape((dim3, dim2)).repeat(dim0 * dim1, axis = 1)).flatten()
     y = x[self.indices_dim0, self.indices_dim1, self.indices_dim2, self.indices_dim3].reshape(sorted_ind.shape)
     self.assign(out_data[0], req[0], mx.nd.array(y))
@@ -37,7 +37,7 @@ class k_max_pool(mx.operator.CustomOp):
     y[self.indices_dim0, self.indices_dim1, self.indices_dim2, self.indices_dim3] \
       = x.reshape([x.shape[0] * x.shape[1] * x.shape[2] * x.shape[3],])
     self.assign(in_grad[0], req[0], mx.nd.array(y))
-    
+
 @mx.operator.register("k_max_pool")
 class k_max_poolProp(mx.operator.CustomOpProp):
   def __init__(self, k):
@@ -129,10 +129,10 @@ def train_dcnn(args, ctx):
   mod = mx.mod.BucketingModule(sym_gen,
                                default_bucket_key=train_iter.default_bucket_key,
                                context=ctx)
-  
+
   # initialization
   arg_params = None
-  aux_params = None 
+  aux_params = None
   optimizer_params = {'wd': 1.0,
                       'learning_rate': 0.1,
                       'eps': 1e-6}
@@ -145,9 +145,9 @@ def train_dcnn(args, ctx):
   metric_ce = mx.metric.CrossEntropy()
   eval_metric.add(metric_acc)
   eval_metric.add(metric_ce)
-  
+
   # start train
-  print "start training..." 
+  print "start training..."
   mod.fit(train_iter, val_iter, eval_metric=eval_metric,
           epoch_end_callback=epoch_end_callback,
           batch_end_callback=batch_end_callback,
@@ -159,7 +159,7 @@ def train_dcnn(args, ctx):
           begin_epoch=args.begin_epoch,
           num_epoch=args.num_epoch,
           validation_metric='acc')
-  
+
   print "Train done for epoch: %s"%args.num_epoch
 
 def parse_args():
@@ -191,6 +191,8 @@ def parse_args():
 
 if __name__ == '__main__':
   args = parse_args()
+  if not os.path.exists(args.prefix):
+      os.makedirs(args.prefix)
   ctx = mx.cpu() if args.gpus is None else [mx.gpu(int(i)) for i in args.gpus.split(',')]
   train_dcnn(args,ctx)
 
