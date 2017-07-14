@@ -4,7 +4,7 @@ import mxnet as mx
 import numpy as np
 import logging
 logging.basicConfig()
-
+from sklearn.preprocessing import StandardScaler
 
 # Parameters
 learning_rate = 0.05
@@ -22,7 +22,7 @@ n_classes = 10 # MNIST total classes (0-9 digits)
 
 def selu(data):
   scale = 1.0507009873554804934193349852946
-  alpha = 1.7580993408473768599402175208123
+  alpha = 1.6732632423543772848170429916717
   data1 = mx.sym.LeakyReLU(data=data, act_type = "leaky", slope = alpha)
   condition = data>=0
   return scale * mx.sym.where(condition=condition, x=data, y=data1)
@@ -62,6 +62,15 @@ def get_sym(is_train=True):
   out = mx.sym.SoftmaxOutput(data = layer_out, name = 'softmax')
   return out
 
+def get_scaler(train_iter):
+  train_iter.reset()
+  x = None
+  for batch in train_iter:
+    if x is None:
+      x = batch.data[0]
+    else:
+      x = mx.nd.concat(x, batch.data[0], dim=0)
+  return StandardScaler().fit(x.asnumpy())
 
 def train(ctx):
   # setup logging
@@ -82,15 +91,18 @@ def train(ctx):
           data_shape=(784,),
           batch_size=512, shuffle=True, flat=True, silent=False)
 
+  # Normalize Data to mean = 0, stdev = 1
+  Scaler = get_scaler(train_dataiter)
+
   # get symbol
   train_net = get_sym()
   pred_net = get_sym(False)
 
   # initialization
   arg_params = {}
-  arg_params['fc1_weight'] = mx.nd.random_normal(scale=np.sqrt(1/float(n_input)), shape=(n_hidden_1, n_input))
-  arg_params['fc2_weight'] = mx.nd.random_normal(scale=np.sqrt(1/float(n_hidden_1)), shape=(n_hidden_2, n_hidden_1))
-  arg_params['fc3_weight'] = mx.nd.random_normal(scale=np.sqrt(1/float(n_hidden_2)), shape=(n_classes, n_hidden_2))
+  arg_params['fc1_weight'] = mx.nd.random_normal(scale=np.sqrt(1.0/n_input), shape=(n_hidden_1, n_input))
+  arg_params['fc2_weight'] = mx.nd.random_normal(scale=np.sqrt(1.0/n_hidden_1), shape=(n_hidden_2, n_hidden_1))
+  arg_params['fc3_weight'] = mx.nd.random_normal(scale=np.sqrt(1.0/n_hidden_2), shape=(n_classes, n_hidden_2))
   arg_params['fc1_bias'] = mx.nd.random_normal(scale=1e-10, shape=(n_hidden_1,))
   arg_params['fc2_bias'] = mx.nd.random_normal(scale=1e-10, shape=(n_hidden_2,))
   arg_params['fc3_bias'] = mx.nd.random_normal(scale=1e-10, shape=(n_classes,))
@@ -106,28 +118,31 @@ def train(ctx):
   mod_pred.bind(data_shapes=train_dataiter.provide_data, label_shapes=train_dataiter.provide_label, shared_module=mod)
 
   for i_epoch in range(num_epoch):
+    train_dataiter.reset()
     for i_iter, batch in enumerate(train_dataiter):
+      batch.data[0] = mx.nd.array(Scaler.transform(batch.data[0].asnumpy()))
       mod.forward(batch)
       mod.backward()
       mod.update()
-    train_dataiter.reset()
+      mod.update_metric(metric, batch.label)
 
     if (i_epoch % display_step == 0):
+      metric.reset()
       mod_pred.reshape(data_shapes=train_dataiter.provide_data, label_shapes=train_dataiter.provide_label)
       mod_pred.forward(batch, is_train=False)
       mod_pred.update_metric(metric, batch.label)
       for name, val in metric.get_name_value():
         print "[Epoch:%d] train-%s: %f"  % (i_epoch, name, val)
-      metric.reset()
 
+      metric.reset()
       mod_pred.reshape(data_shapes=val_dataiter.provide_data, label_shapes=val_dataiter.provide_label)
       val_batch = val_dataiter.next()
+      val_batch.data[0] = mx.nd.array(Scaler.transform(val_batch.data[0].asnumpy()))
       mod_pred.forward(val_batch, is_train=False)
       mod_pred.update_metric(metric, val_batch.label)
       val_dataiter.reset()
       for name, val in metric.get_name_value():
         print "[Epoch:%d] val-%s %f"  % (i_epoch, name, val)
-      metric.reset()
 
 
 if __name__ == '__main__':
