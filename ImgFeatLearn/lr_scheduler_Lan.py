@@ -47,7 +47,6 @@ class Lan_Scheduler(mx.lr_scheduler.LRScheduler):
         while num_update > self.count + self.step:
             self.count += self.step
             self.lr = 1 / (self.base_lr + self.gama * math.pow(num_update, self.p))
-            print "############", num_update, self.gama * math.pow(num_update, self.p)
             if self.lr < self.stop_factor_lr:
                 self.lr = self.stop_factor_lr
                 logging.info("Update[%d]: now learning rate arrived at %0.5e, will not "
