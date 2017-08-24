@@ -132,10 +132,10 @@ def train(ctx):
                                             mod._exec_group.data_arrays,
                                             mod._exec_group.data_layouts)
         data_num = len(mod._exec_group.data_arrays[0])
-        row_ids = [mod._exec_group.data_arrays[0][i][1].indices.copyto(mx.cpu())
+        row_ids = [mod._exec_group.data_arrays[0][i][1].indices
                      for i in range(data_num)]
       else:
-        row_ids = [batch.data[0].indices.copyto(mx.cpu())]
+        row_ids = [batch.data[0].indices]
 
       # pull sparse weight
       index = mod._exec_group.param_names.index('usr_weight')

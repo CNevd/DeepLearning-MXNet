@@ -30,7 +30,7 @@ class DataIter(mx.io.DataIter):
             while(self.index_start + self.batch_size < size):
                 index_end = self.index_start + self.batch_size
                 uid = data[self.index_start : index_end, 0].astype(int)
-                usr_data = mx.nd.csr_matrix(np.ones(self.batch_size), np.arange(self.batch_size+1), uid, (self.batch_size, self.usr_num))
+                usr_data = mx.nd.sparse.csr_matrix(np.ones(self.batch_size), np.arange(self.batch_size+1), uid, (self.batch_size, self.usr_num))
                 doc_pos = self.news_vec[data[self.index_start : index_end, 2]]
                 doc_neg = self.news_vec[data[self.index_start : index_end, 3]]
                 data_all = [usr_data, mx.nd.array(doc_pos), mx.nd.array(doc_neg)]
