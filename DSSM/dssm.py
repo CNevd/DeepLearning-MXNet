@@ -13,7 +13,7 @@ DOC_DIM = 200
 OUT_DIM = 128
 batch_size = 2048
 num_hidden = 512
-num_epoch = 1
+num_epoch = 10
 
 
 class Cosine(mx.metric.EvalMetric):
@@ -89,6 +89,7 @@ def train(ctx):
   train_iter = DataIter('./dssm_data/dssm/0', batch_size, USR_NUM, DOC_DIM)
   data_names = [k[0] for k in train_iter.provide_data]
   label_names = [k[0] for k in train_iter.provide_label]
+  eval_iter = DataIter('./dssm_data/dssm/1', batch_size, USR_NUM, DOC_DIM)
 
   # Set symbol
   dssm = get_dssm()
@@ -108,10 +109,10 @@ def train(ctx):
   sgd = mx.optimizer.Adam(learning_rate=0.01, rescale_grad=1.0/batch_size)
   mod.init_optimizer(optimizer=sgd, kvstore=kv)
 
-  # Metric and Callback
   metric = mx.metric.CompositeEvalMetric()
   metric.add(Cosine())
   metric.add(Acc())
+  val_metric = metric
   batch_end_callback = mx.callback.Speedometer(batch_size, frequent=50)
   epoch_end_callback = mx.callback.do_checkpoint('dssm', period=1)
 
@@ -127,15 +128,15 @@ def train(ctx):
     while not end_of_batch:
       batch = next_batch
       # Get row ids for devices
-      if (len(ctx) > 1):
+      if (ctx == mx.cpu() or len(ctx) == 1):
+        row_ids = [batch.data[0].indices]
+      else:
         mx.module.executor_group._load_data(batch, 
                                             mod._exec_group.data_arrays,
                                             mod._exec_group.data_layouts)
         data_num = len(mod._exec_group.data_arrays[0])
         row_ids = [mod._exec_group.data_arrays[0][i][1].indices
                      for i in range(data_num)]
-      else:
-        row_ids = [batch.data[0].indices]
 
       # pull sparse weight
       index = mod._exec_group.param_names.index('usr_weight')
@@ -168,6 +169,12 @@ def train(ctx):
     arg_params, aux_params = mod.get_params()
     mod.set_params(arg_params, aux_params)
     epoch_end_callback(epoch, mod.symbol, arg_params, aux_params)
+
+    # evaluation on validation set
+    if eval_iter:
+      res = mod.score(eval_iter, val_metric, epoch=epoch)
+      for name, val in res:
+        logger.info('Epoch[%d] Validation-%s=%f', epoch, name, val)
 
     train_iter.reset()
 
